@@ -1,0 +1,32 @@
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}
+      % Nodes
+      % parameters and data
+      \node[latent]           (alpha)    {$\alpha$}; %
+      \node[latent, right= of alpha]  (theta) {$\theta_d$};
+      \node[latent, right= of theta]  (z) {$z_{d,i}$};
+      \node[obs, right = of z]  (w) {$w_{d,i}$};
+      \node[latent, right = of w]  (phi) {$\phi_k$};
+      \node[latent, right = of phi]  (beta) {$\beta$};
+      % edges
+       \edge{alpha}{theta};
+       \edge{theta}{z};
+       \edge{z}{w};
+       \edge{phi}{w};
+       \edge{beta}{phi};
+     % Plates
+      {
+       \tikzset{plate caption/.append style={below=20pt of #1.south east}}
+       \plate[inner ysep=7pt, inner xsep=10pt, xshift=-1pt, yshift=2pt] {plate1} {(theta)(z)(w)} {$D$};
+      }
+    
+      \plate[]{plate2}{
+        (z)(w)
+      }{$N_d$};
+    
+      \plate[]{plate3}{
+        (phi)
+      }{$K$};
+    \end{tikzpicture}
+    \end{figure}
