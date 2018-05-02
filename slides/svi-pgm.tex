@@ -1,0 +1,23 @@
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+% Nodes
+% parameters and data
+\node[latent](z){$z_n$};
+\node[obs, above = of z, xshift=-0.5cm](alpha)    {$\alpha$}; %
+\node[latent, above = of z, xshift = 1.5cm](beta){$\beta$};
+\node[obs, right = of z, xshift=1.5cm](x){$x_n$};
+
+\edge{alpha}{beta};
+\edge{beta}{z};
+\edge{z}{x};
+\edge{beta}{x};
+
+
+\plate[]{plate}{
+(z)(x)
+}{$N$};
+
+
+\end{tikzpicture}
+\end{figure}

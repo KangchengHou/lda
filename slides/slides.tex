@@ -2,6 +2,8 @@
 \usefonttheme[onlymath]{serif}
 \usepackage{amsmath}
 \usepackage{amsfonts}
+\usepackage{mathtools}
+\usepackage{cancel}
 \usepackage[export]{adjustbox}
 \usepackage[utf8]{inputenc}
 \usepackage{tikz} 
@@ -23,11 +25,11 @@
 \newcommand{\minimize}{\mathop{\mathrm{minimize}}}
 \newcommand{\maximize}{\mathop{\mathrm{maximize}}}
 \newcommand{\st}{\mathop{\mathrm{subject\,\,to}}}
- 
+\newcommand\mat[1]{\begin{bmatrix}#1\end{bmatrix}} 
 %Information to be included in the title page:
 \usecolortheme{seahorse}
 \title{Latent Dirichlet Allocation}
-\author{Kangcheng Hou}
+\author{Kangcheng Hou\\kangchenghou@gmail.com}
 \institute{Zhejiang University}
 \date{\today}
 
@@ -37,38 +39,52 @@
     
 \frame{\titlepage}
 
-\begin{frame}{Introduction}
-Here is a PGM of LDA.
-\input{lda.tex}
-We want to sample the posterior distribution of the latent variable $z_{d,i}$ given $w_{d,i}$. One method is gibbs sampling, in every iteration, we sample $z_i$ from distribution $p(z_i | z_{\neg i}, w)$.
+\input{part1.tex} 
+
+\begin{frame}[allowframebreaks]{Variational Inference}
+Now let's see how to implement do variational inference for the following model.
+\input{svi-pgm.tex}
 The joint distribution is 
-$$p(w,z | \alpha, \beta) = p(w | z, \beta) p(z | \alpha)$$
-\end{frame}
-\begin{frame}{Posterior predictive of Dirichlet-Multinomial}
-Suppose we have dirichlet prior distribution,
-$$p(\theta | \alpha) = \text{Dir}(\theta | \alpha) \propto \prod_{k=1}^K \theta_i^{\alpha_i - 1}$$
+$$p(x,z,\beta | \alpha)=p(\beta | \alpha)\prod_{n=1}^N p(x_n,z_n | \beta)$$
+We make the following assumptions, the conditional distribution belongs to exponential family distribution,
+$$p(\beta | x,z,\alpha)=h(\beta)\exp(\eta_g (x,z,\alpha)^\top T(\beta)-A_g(\eta_g(x,z,\alpha)))$$
+and
+$$\scriptstyle p(z_{nj}|x_n,z_{n,\neg j},\beta)=h(z_{nj})\exp(\eta_l(x_n,z_{n,\neg j},\beta)^\top T(z_{nj})-A_l(\eta_l(x_n,z_{n,\neg j},\beta)))$$
+The evidence lower bound is
+$$\mathcal{L}(q)=\mathbb{E}_q[\log p(x,z,\beta)]-\mathbb{E}_q[\log q(z,\beta)]$$
+We select the distribution $q$ such that it is both expressive and easier to optimize, (Note that we only restrict the function form for $p$, but have not specifies the factorization form of $p$.)
+$$q(z,\beta)=q(\beta|\lambda)\prod_{n=1}^N \prod_{j=1}^J q(z_{nj}|\phi_{nj})$$
+Other than the factorization of $q(z,\beta)$, we restrict $q(z, \beta)$ and $q(z_{nj} | \phi_{nj})$.
+$$q(\beta | \lambda)=h(\beta)\exp(\lambda^\top T(\beta)-A_g(\lambda))$$
+$$q(z_{nj}|\phi_{nj})=h(z_{nj})\exp(\phi_{nj}^\top T(z_{nj})-A_l(\phi_{nj}))$$
+Now let's alter the parameter $\lambda, \phi$ to maximize the ELBO.
+Rather than $\mathcal{L}(q)$, we can write it as $\mathcal{L}(\lambda, \phi)$.
+It turns out we can optimize $\lambda$ and $\phi$ in turn.  We first fix $\phi$ and optimize $\lambda$. 
 
-\end{frame}
-\begin{frame}[allowframebreaks]{Joint distribution}
-The joint distribution is $p(w,z | \alpha, \beta) = p(w | z, \beta) p(z | \alpha)$. The first part is
+\begin{align*}
+\mathcal{L}(q)& =\mathbb{E}_q[\log p(x,z,\beta)]-\mathbb{E}_q[\log q(z,\beta)] \\
+& = \mathbb{E}_q[\log p(\beta | x,z)] + \underbrace{\mathbb{E}_q[\log p(x,z)]}_{\text{not related to }\beta}-\mathbb{E}_q[\log q(z,\beta)] \\
+& = \mathbb{E}_q[\log h(\beta)] + \mathbb{E}_q[\eta_g (x,z)]^\top \mathbb{E}_q[T(\beta)]-\mathbb{E}_q[A_g(\eta_g(x,z))]  \\ 
+& \quad  - \mathbb{E}_q[\log h(\beta)] - \mathbb{E}_q[T(\beta)^\top \lambda] +  \mathbb{E}[A_g(\lambda)] \\
+& = \mathbb{E}_q[\eta_g (x,z)]^\top\mathbb{E}_q[T(\beta)]-\mathbb{E}_q[A_g(\eta_g(x,z))] - \mathbb{E}_q[T(\beta)^\top \lambda] \\ 
+& \quad + \mathbb{E}[A_g(\lambda)] \\ 
+& = \mathbb{E}_q[\eta_g (x,z)]^\top\mathbb{E}_q[T(\beta)] - \mathbb{E}_q[T(\beta)]^\top\lambda + A_g(\lambda) \\
+& = \nabla_\lambda A_g(\lambda)^\top(\mathbb{E}_{q(z | \phi)}[\eta_g (x,z)] - \lambda) + A_g(\lambda)
+\end{align*}
+Maximize w.r.t $\mathcal{L}(\lambda)$ a.k.a $\mathcal{L}(q)$, $\frac{d\mathcal{L}(\lambda)}{d \lambda} = 0$, we have 
+$$\nabla^2_\lambda A_g(\lambda)^\top(\mathbb{E}_{q(z | \phi)}[\eta_g (x,z)] - \lambda) = 0$$
 
-$$p(w | z, \beta) = \int_{\phi_{1 : K}} p(w | z, \phi_{1 : K})p(\phi_{1 : K} | \beta)d \phi_{1 :K}$$
-Let's see $p(w | z, \phi_{1 : K})$ first, 
-$$p(w | z, \phi_{1 : K}) = \prod_{i=1}^W \phi_{z_i, w_i}$$
-Or we can rephrase it in another way, where we classify it by topic.
-$$p(w | z, \phi_{1 : K}) = \prod_{i=1}^W \phi_{z_i, w_i} = \prod_{k=1}^K \prod_{v=1}^V \phi_{k,v}^{n_k^{(v)}}$$
-And $$p(\phi_{1 : K} | \beta) = \prod_{k=1}^K \prod_{v=1}^V \phi_{k,v}^{\beta_v - 1} $$
-Adding these two together, we have
-$$p(w | z, \beta) = \prod_{k=1}^K \frac{B(n_k + \beta)}{B(\beta)}$$
-$n_k$ represents the word apperance frequencies in topic $k$.
-The topic distribution $p(z | \alpha)$ can be derived similarly,
-$$p(z | \alpha) = \prod_{d=1}^D\frac{B(n_d + \alpha)}{B(\alpha)}$$
-So the joint distribution is
-$$p(z,w | \alpha, \beta) = \prod_{k=1}^K \frac{B(n_k + \beta)}{B(\beta)}\prod_{d=1}^D\frac{B(n_d + \alpha)}{B(\alpha)}$$
-$$p(z_i = k | z_{\neg i}, w, \alpha, \beta) = \frac{p(w,z) | \alpha, \beta}{p(w, z_{\neg i} | \alpha, \beta)} \propto p(w,z | \alpha, \beta) $$
-And the multinomial parameters can be derived as follows
-$$p(\theta_d | w, z, \alpha) \sim \text{Dir}(\theta_m | n_m + \alpha)$$
-$$p(\phi_d | w, z, \beta) \sim \text{Dir}(\phi_d | n_d + \beta) $$
+\framebreak 
+Assume that $\nabla^2_\lambda A_g(\lambda) \neq 0$, so we have
+$$\mathbb{E}_{q(z | \phi)}[\eta_g (x,z)] - \lambda = 0$$
+That's cool! Right? What have we done so far?
+\begin{itemize}
+\item We first specifies a graphical model, and specifies the latent variables e.g. $z, \beta$.
+\item We define the distribution so that the conditional distribution for latent varaibels given other variables is always exponential family distribution.
+\item For joint distribution of latent variable e.g. $q(z, \beta)$, we assume that $q(z, \beta)$ factorizes into $q(z | \lambda)q(\beta | \phi)$. 
+\item Then, we have a very nice conclusion from our previous lengthy derivation that if we optimize the parameters e.g. $\lambda, \phi$ one by one, we just do it in this way. Repeat between $\lambda = \mathbb{E}_{q(z | \phi)}[\eta_g (x,z)]$ and $\phi = \mathbb{E}_{q(z | \lambda)}[\eta_l (x,\beta)]$ which is \textbf{set the parameter to be the expectation of natural prameter conditioning on all other latent variables}.
+\end{itemize}
+
 \end{frame}
 
 
