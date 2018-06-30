@@ -1,0 +1,17 @@
+\begin{frame}{Latent variable model}
+\input{svi-pgm.tex}
+The joint distribution is 
+$$p(x,z,\beta | \alpha)=p(\beta | \alpha)\prod_{n=1}^N p(x_n,z_n | \beta)$$
+The task is to infer the posterior distribution of local latent variables $z$ and the global variable $\beta$ given the data $x$. 
+$$p(z, \beta | x, \alpha)$$
+\end{frame}
+
+\begin{frame}{Two methods}
+To do inference, there are usually two methods:
+\begin{enumerate}
+\item MCMC, the basic idea is to construct a Markov chain such that if we sample points on this chain. We will get the posterior distribution.
+\item Variational Inference
+\end{enumerate}
+
+
+\end{frame}
